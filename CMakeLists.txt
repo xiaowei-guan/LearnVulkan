@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.28.3)
 project(LearnOpenGL VERSION 0.1.0 LANGUAGES C CXX)
 
 find_package(PkgConfig REQUIRED)
+find_package (Vulkan REQUIRED)
 pkg_check_modules(GLFW REQUIRED glfw3)
 message(STATUS "Found GLFW3 in ${GLFW_INCLUDE_DIRS}")
 
-set(LIBS ${GLFW_LIBRARIES})
+set(LIBS ${GLFW_LIBRARIES} ${Vulkan_LIBRARIES}  Vulkan::Vulkan)
 
 set(CHAPTERS
     1.getting_started
@@ -13,6 +14,8 @@ set(CHAPTERS
 
 set(1.getting_started
     1.1.hello_window
+    2.1.hello_triangle
+
 )
 
 function(create_project_from_sources chapter demo)
@@ -62,6 +65,7 @@ endforeach(GUEST_ARTICLE)
 
 include_directories(
     ${GLFW_INCLUDE_DIRS}
+    ${Vulkan_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}/include
 )
 
