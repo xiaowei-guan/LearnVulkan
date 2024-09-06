@@ -43,6 +43,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 }
 
 class HelloTriangleApplication {
+<<<<<<< HEAD
  public:
   void run() {
     initWindow();
@@ -203,6 +204,9 @@ class HelloTriangleApplication {
 
     return VK_FALSE;
   }
+=======
+    
+>>>>>>> 528cee3 (Add window code)
 };
 
 int main() {
