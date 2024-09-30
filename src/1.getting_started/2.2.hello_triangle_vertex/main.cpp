@@ -24,39 +24,33 @@ const uint32_t HEIGHT = 600;
 
 int main(int argc, char **argv) {
   Window window;
-  HelloTriangle helloTriangle;
+  HelloTriangleVertex helloTriangleVertex;
   // Window creation
   if (!window.Create("Hello, triangle", WIDTH, HEIGHT)) {
     return -1;
   }
 
   // Vulkan preparations and initialization
-  if (!helloTriangle.PrepareVulkan(window.GetWindow())) {
+  if( !helloTriangleVertex.PrepareVulkan( window.GetWindow()) ) {
     return -1;
   }
 
-  if (!helloTriangle.CreateRenderPass()) {
+  // Tutorial 04
+  if( !helloTriangleVertex.CreateRenderPass() ) {
     return -1;
   }
-  if (!helloTriangle.CreateFramebuffers()) {
+  if( !helloTriangleVertex.CreatePipeline() ) {
     return -1;
   }
-  if (!helloTriangle.CreatePipeline()) {
+  if( !helloTriangleVertex.CreateVertexBuffer() ) {
     return -1;
   }
-
-  if (!helloTriangle.CreateSemaphores()) {
-    return -1;
-  }
-  if (!helloTriangle.CreateCommandBuffers()) {
-    return -1;
-  }
-  if (!helloTriangle.RecordCommandBuffers()) {
+  if( !helloTriangleVertex.CreateRenderingResources() ) {
     return -1;
   }
 
   // Rendering loop
-  if (!window.RenderingLoop(helloTriangle)) {
+  if (!window.RenderingLoop(helloTriangleVertex)) {
     return -1;
   }
   return 0;

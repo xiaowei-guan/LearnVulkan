@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.28.3)
-project(LearnOpenGL VERSION 0.1.0 LANGUAGES C CXX)
+cmake_minimum_required(VERSION 3.22.1)
+project(LearnVulkan VERSION 0.1.0 LANGUAGES C CXX)
+SET(CMAKE_BUILD_TYPE "Debug")
 
 find_package(PkgConfig REQUIRED)
 find_package (Vulkan REQUIRED)

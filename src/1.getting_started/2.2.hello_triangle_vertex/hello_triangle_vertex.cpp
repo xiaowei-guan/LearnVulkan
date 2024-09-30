@@ -1,51 +1,98 @@
-#define GLFW_INCLUDE_VULKAN
+////////////////////////////////////////////////////////////////////////////////
+// Copyright 2017 Intel Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License.  You may obtain a copy
+// of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+// License for the specific language governing permissions and limitations
+// under the License.
+////////////////////////////////////////////////////////////////////////////////
+
 #include "hello_triangle_vertex.h"
 
-#include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <string.h>
 
+#include <cstddef>
 #include <iostream>
 
-bool HelloTriangle::CreateRenderPass() {
-  VkAttachmentDescription color_attachment{};
-  color_attachment.format = GetSwapChain().Format;
-  color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+HelloTriangleVertex::HelloTriangleVertex() {}
 
-  VkAttachmentReference color_attachment_references{};
-  color_attachment_references.attachment = 0;
-  color_attachment_references.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+bool HelloTriangleVertex::CreateRenderPass() {
+  VkAttachmentDescription attachment_descriptions[] = {{
+      0,                             // VkAttachmentDescriptionFlags   flags
+      GetSwapChain().Format,         // VkFormat                       format
+      VK_SAMPLE_COUNT_1_BIT,         // VkSampleCountFlagBits          samples
+      VK_ATTACHMENT_LOAD_OP_CLEAR,   // VkAttachmentLoadOp             loadOp
+      VK_ATTACHMENT_STORE_OP_STORE,  // VkAttachmentStoreOp            storeOp
+      VK_ATTACHMENT_LOAD_OP_DONT_CARE,   // VkAttachmentLoadOp stencilLoadOp
+      VK_ATTACHMENT_STORE_OP_DONT_CARE,  // VkAttachmentStoreOp stencilStoreOp
+      VK_IMAGE_LAYOUT_UNDEFINED,         // VkImageLayout initialLayout;
+      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR    // VkImageLayout finalLayout
+  }};
 
-  VkSubpassDescription subpass{};
-  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = &color_attachment_references;
+  VkAttachmentReference color_attachment_references[] = {{
+      0,  // uint32_t                       attachment
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL  // VkImageLayout layout
+  }};
 
-  VkSubpassDependency dependency{};
-  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-  dependency.dstSubpass = 0;
-  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.srcAccessMask = 0;
-  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  VkSubpassDescription subpass_descriptions[] = {{
+      0,                                // VkSubpassDescriptionFlags      flags
+      VK_PIPELINE_BIND_POINT_GRAPHICS,  // VkPipelineBindPoint pipelineBindPoint
+      0,        // uint32_t                       inputAttachmentCount
+      nullptr,  // const VkAttachmentReference   *pInputAttachments
+      1,        // uint32_t                       colorAttachmentCount
+      color_attachment_references,  // const VkAttachmentReference
+                                    // *pColorAttachments
+      nullptr,  // const VkAttachmentReference   *pResolveAttachments
+      nullptr,  // const VkAttachmentReference   *pDepthStencilAttachment
+      0,        // uint32_t                       preserveAttachmentCount
+      nullptr   // const uint32_t*                pPreserveAttachments
+  }};
 
-  VkRenderPassCreateInfo render_pass_info{};
-  render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  render_pass_info.attachmentCount = 1;
-  render_pass_info.pAttachments = &color_attachment;
-  render_pass_info.subpassCount = 1;
-  render_pass_info.pSubpasses = &subpass;
-  render_pass_info.dependencyCount = 1;
-  render_pass_info.pDependencies = &dependency;
+  std::vector<VkSubpassDependency> dependencies = {
+      {
+          VK_SUBPASS_EXTERNAL,  // uint32_t                       srcSubpass
+          0,                    // uint32_t                       dstSubpass
+          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,  // VkPipelineStageFlags
+                                                 // srcStageMask
+          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // VkPipelineStageFlags
+                                                          // dstStageMask
+          VK_ACCESS_MEMORY_READ_BIT,             // VkAccessFlags srcAccessMask
+          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,  // VkAccessFlags dstAccessMask
+          VK_DEPENDENCY_BY_REGION_BIT  // VkDependencyFlags dependencyFlags
+      },
+      {
+          0,                    // uint32_t                       srcSubpass
+          VK_SUBPASS_EXTERNAL,  // uint32_t                       dstSubpass
+          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // VkPipelineStageFlags
+                                                          // srcStageMask
+          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,  // VkPipelineStageFlags
+                                                 // dstStageMask
+          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,  // VkAccessFlags srcAccessMask
+          VK_ACCESS_MEMORY_READ_BIT,             // VkAccessFlags dstAccessMask
+          VK_DEPENDENCY_BY_REGION_BIT  // VkDependencyFlags dependencyFlags
+      }};
 
-  if (vkCreateRenderPass(GetDevice(), &render_pass_info, nullptr,
-                         &render_pass_) != VK_SUCCESS) {
+  VkRenderPassCreateInfo render_pass_create_info = {
+      VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,  // VkStructureType sType
+      nullptr,  // const void                    *pNext
+      0,        // VkRenderPassCreateFlags        flags
+      1,        // uint32_t                       attachmentCount
+      attachment_descriptions,  // const VkAttachmentDescription *pAttachments
+      1,                        // uint32_t                       subpassCount
+      subpass_descriptions,     // const VkSubpassDescription    *pSubpasses
+      static_cast<uint32_t>(dependencies.size()),  // uint32_t dependencyCount
+      dependencies.data()  // const VkSubpassDependency     *pDependencies
+  };
+
+  if (vkCreateRenderPass(GetDevice(), &render_pass_create_info, nullptr,
+                         &Vulkan.RenderPass) != VK_SUCCESS) {
     std::cout << "Could not create render pass!" << std::endl;
     return false;
   }
@@ -53,127 +100,191 @@ bool HelloTriangle::CreateRenderPass() {
   return true;
 }
 
-bool HelloTriangle::CreateFramebuffers() {
-  const std::vector<ImageParameters>& swap_chain_images = GetSwapChain().Images;
-  framebuffers_.resize(swap_chain_images.size());
-
-  for (size_t i = 0; i < swap_chain_images.size(); ++i) {
-    VkFramebufferCreateInfo framebuffer_create_info = {};
-    framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebuffer_create_info.renderPass = render_pass_;
-    framebuffer_create_info.attachmentCount = 1;
-    framebuffer_create_info.pAttachments = &swap_chain_images[i].View;
-    framebuffer_create_info.width = 800;
-    framebuffer_create_info.height = 600;
-    framebuffer_create_info.layers = 1;
-
-    if (vkCreateFramebuffer(GetDevice(), &framebuffer_create_info, nullptr,
-                            &framebuffers_[i]) != VK_SUCCESS) {
-      std::cout << "Could not create a framebuffer!" << std::endl;
-      return false;
-    }
+Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>
+HelloTriangleVertex::CreateShaderModule(const char *filename) {
+  const std::vector<char> code = Tools::GetBinaryFileContents(filename);
+  if (code.size() == 0) {
+    return Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>();
   }
-  return true;
+
+  VkShaderModuleCreateInfo shader_module_create_info = {
+      VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,  // VkStructureType sType
+      nullptr,      // const void                    *pNext
+      0,            // VkShaderModuleCreateFlags      flags
+      code.size(),  // size_t                         codeSize
+      reinterpret_cast<const uint32_t *>(code.data())  // const uint32_t *pCode
+  };
+
+  VkShaderModule shader_module;
+  if (vkCreateShaderModule(GetDevice(), &shader_module_create_info, nullptr,
+                           &shader_module) != VK_SUCCESS) {
+    std::cout << "Could not create shader module from a \"" << filename
+              << "\" file!" << std::endl;
+    return Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>();
+  }
+
+  return Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>(
+      shader_module, vkDestroyShaderModule, GetDevice());
 }
 
-bool HelloTriangle::CreatePipeline() {
+Tools::AutoDeleter<VkPipelineLayout, PFN_vkDestroyPipelineLayout>
+HelloTriangleVertex::CreatePipelineLayout() {
+  VkPipelineLayoutCreateInfo layout_create_info = {
+      VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,  // VkStructureType sType
+      nullptr,  // const void                    *pNext
+      0,        // VkPipelineLayoutCreateFlags    flags
+      0,        // uint32_t                       setLayoutCount
+      nullptr,  // const VkDescriptorSetLayout   *pSetLayouts
+      0,        // uint32_t                       pushConstantRangeCount
+      nullptr   // const VkPushConstantRange     *pPushConstantRanges
+  };
+
+  VkPipelineLayout pipeline_layout;
+  if (vkCreatePipelineLayout(GetDevice(), &layout_create_info, nullptr,
+                             &pipeline_layout) != VK_SUCCESS) {
+    std::cout << "Could not create pipeline layout!" << std::endl;
+    return Tools::AutoDeleter<VkPipelineLayout, PFN_vkDestroyPipelineLayout>();
+  }
+
+  return Tools::AutoDeleter<VkPipelineLayout, PFN_vkDestroyPipelineLayout>(
+      pipeline_layout, vkDestroyPipelineLayout, GetDevice());
+}
+
+bool HelloTriangleVertex::CreatePipeline() {
   Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>
       vertex_shader_module =
-          CreateShaderModule("data/2.2.hello_triangle/shader.vert.spv");
+          CreateShaderModule("data/2.2.hello_triangle_vertex/shader.vert.spv");
   Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>
       fragment_shader_module =
-          CreateShaderModule("data/2.2.hello_triangle/shader.frag.spv");
+          CreateShaderModule("data/2.2.hello_triangle_vertex/shader.frag.spv");
 
   if (!vertex_shader_module || !fragment_shader_module) {
     return false;
   }
 
-  std::vector<VkPipelineShaderStageCreateInfo> shader_stage_create_infos;
-  VkPipelineShaderStageCreateInfo vertex_shader_module_create_info = {};
-  vertex_shader_module_create_info.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  vertex_shader_module_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-  vertex_shader_module_create_info.module = vertex_shader_module.Get();
-  vertex_shader_module_create_info.pName = "main";
-  shader_stage_create_infos.push_back(vertex_shader_module_create_info);
+  std::vector<VkPipelineShaderStageCreateInfo> shader_stage_create_infos = {
+      // Vertex shader
+      {
+          VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,  // VkStructureType
+                                                                // sType
+          nullptr,  // const void                                    *pNext
+          0,        // VkPipelineShaderStageCreateFlags               flags
+          VK_SHADER_STAGE_VERTEX_BIT,  // VkShaderStageFlagBits stage
+          vertex_shader_module.Get(),  // VkShaderModule module
+          "main",  // const char                                    *pName
+          nullptr  // const VkSpecializationInfo *pSpecializationInfo
+      },
+      // Fragment shader
+      {
+          VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,  // VkStructureType
+                                                                // sType
+          nullptr,  // const void                                    *pNext
+          0,        // VkPipelineShaderStageCreateFlags               flags
+          VK_SHADER_STAGE_FRAGMENT_BIT,  // VkShaderStageFlagBits stage
+          fragment_shader_module.Get(),  // VkShaderModule module
+          "main",  // const char                                    *pName
+          nullptr  // const VkSpecializationInfo *pSpecializationInfo
+      }};
 
-  VkPipelineShaderStageCreateInfo fragment_shader_module_create_info = {};
-  fragment_shader_module_create_info.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  fragment_shader_module_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-  fragment_shader_module_create_info.module = fragment_shader_module.Get();
-  fragment_shader_module_create_info.pName = "main";
-  shader_stage_create_infos.push_back(fragment_shader_module_create_info);
+  std::vector<VkVertexInputBindingDescription> vertex_binding_descriptions = {{
+      0,  // uint32_t                                       binding
+      sizeof(VertexData),          // uint32_t stride
+      VK_VERTEX_INPUT_RATE_VERTEX  // VkVertexInputRate inputRate
+  }};
 
-  VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {};
-  vertex_input_state_create_info.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  std::vector<VkVertexInputAttributeDescription> vertex_attribute_descriptions =
+      {{
+           0,  // uint32_t                                       location
+           vertex_binding_descriptions[0].binding,  // uint32_t binding
+           VK_FORMAT_R32G32B32A32_SFLOAT,           // VkFormat format
+           offsetof(struct VertexData, x)           // uint32_t offset
+       },
+       {
+           1,  // uint32_t                                       location
+           vertex_binding_descriptions[0].binding,  // uint32_t binding
+           VK_FORMAT_R32G32B32A32_SFLOAT,           // VkFormat format
+           offsetof(struct VertexData, r)           // uint32_t offset
+       }};
 
-  VkVertexInputBindingDescription bindingDescription{};
-  bindingDescription.binding = 0;
-  bindingDescription.stride = sizeof(Vertex);
-  bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {
+      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,  // VkStructureType
+                                                                  // sType
+      nullptr,  // const void                                    *pNext
+      0,        // VkPipelineVertexInputStateCreateFlags          flags
+      static_cast<uint32_t>(
+          vertex_binding_descriptions
+              .size()),  // uint32_t vertexBindingDescriptionCount
+      vertex_binding_descriptions
+          .data(),  // const VkVertexInputBindingDescription
+                    // *pVertexBindingDescriptions
+      static_cast<uint32_t>(
+          vertex_attribute_descriptions
+              .size()),  // uint32_t vertexAttributeDescriptionCount
+      vertex_attribute_descriptions
+          .data()  // const VkVertexInputAttributeDescription
+                   // *pVertexAttributeDescriptions
+  };
 
-  std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
-  attributeDescriptions[0].binding = 0;
-  attributeDescriptions[0].location = 0;
-  attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-  attributeDescriptions[0].offset = offsetof(Vertex, pos);
+  VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info = {
+      VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,  // VkStructureType
+                                                                    // sType
+      nullptr,  // const void                                    *pNext
+      0,        // VkPipelineInputAssemblyStateCreateFlags        flags
+      VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,  // VkPrimitiveTopology topology
+      VK_FALSE                               // VkBool32 primitiveRestartEnable
+  };
 
-  vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
-  vertex_input_state_create_info.vertexAttributeDescriptionCount =
-      static_cast<uint32_t>(attributeDescriptions.size());
-  vertex_input_state_create_info.pVertexBindingDescriptions =
-      &bindingDescription;
-  vertex_input_state_create_info.pVertexAttributeDescriptions =
-      attributeDescriptions.data();
+  VkPipelineViewportStateCreateInfo viewport_state_create_info = {
+      VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,  // VkStructureType
+                                                              // sType
+      nullptr,  // const void                                    *pNext
+      0,        // VkPipelineViewportStateCreateFlags             flags
+      1,        // uint32_t                                       viewportCount
+      nullptr,  // const VkViewport                              *pViewports
+      1,        // uint32_t                                       scissorCount
+      nullptr   // const VkRect2D                                *pScissors
+  };
 
-  VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info = {};
-  input_assembly_state_create_info.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-  input_assembly_state_create_info.topology =
-      VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-  input_assembly_state_create_info.primitiveRestartEnable = VK_FALSE;
+  VkPipelineRasterizationStateCreateInfo rasterization_state_create_info = {
+      VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,  // VkStructureType
+                                                                   // sType
+      nullptr,   // const void                                    *pNext
+      0,         // VkPipelineRasterizationStateCreateFlags        flags
+      VK_FALSE,  // VkBool32 depthClampEnable
+      VK_FALSE,  // VkBool32 rasterizerDiscardEnable
+      VK_POLYGON_MODE_FILL,             // VkPolygonMode polygonMode
+      VK_CULL_MODE_BACK_BIT,            // VkCullModeFlags cullMode
+      VK_FRONT_FACE_COUNTER_CLOCKWISE,  // VkFrontFace frontFace
+      VK_FALSE,                         // VkBool32 depthBiasEnable
+      0.0f,                             // float depthBiasConstantFactor
+      0.0f,  // float                                          depthBiasClamp
+      0.0f,  // float depthBiasSlopeFactor
+      1.0f   // float                                          lineWidth
+  };
 
-  VkViewport viewport = {0.0f, 0.0f, 800.0f, 600.0f, 0.0f, 1.0f};
-
-  VkRect2D scissor = {{0, 0}, {800, 600}};
-
-  VkPipelineViewportStateCreateInfo viewport_state_create_info = {};
-  viewport_state_create_info.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-  viewport_state_create_info.viewportCount = 1;
-  viewport_state_create_info.pViewports = &viewport;
-  viewport_state_create_info.scissorCount = 1;
-  viewport_state_create_info.pScissors = &scissor;
-
-  VkPipelineRasterizationStateCreateInfo rasterization_state_create_info = {};
-  rasterization_state_create_info.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-  rasterization_state_create_info.depthClampEnable = VK_FALSE;
-  rasterization_state_create_info.rasterizerDiscardEnable = VK_FALSE;
-  rasterization_state_create_info.polygonMode = VK_POLYGON_MODE_FILL;
-  rasterization_state_create_info.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterization_state_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-  rasterization_state_create_info.lineWidth = 1.0f;
-  rasterization_state_create_info.depthBiasEnable = VK_FALSE;
-
-  VkPipelineMultisampleStateCreateInfo multisample_state_create_info = {};
-  multisample_state_create_info.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-  multisample_state_create_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-  multisample_state_create_info.minSampleShading = 1.0f;
-  multisample_state_create_info.sampleShadingEnable = VK_FALSE;
+  VkPipelineMultisampleStateCreateInfo multisample_state_create_info = {
+      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,  // VkStructureType
+                                                                 // sType
+      nullptr,  // const void                                    *pNext
+      0,        // VkPipelineMultisampleStateCreateFlags          flags
+      VK_SAMPLE_COUNT_1_BIT,  // VkSampleCountFlagBits rasterizationSamples
+      VK_FALSE,               // VkBool32 sampleShadingEnable
+      1.0f,  // float                                          minSampleShading
+      nullptr,   // const VkSampleMask                            *pSampleMask
+      VK_FALSE,  // VkBool32 alphaToCoverageEnable
+      VK_FALSE   // VkBool32 alphaToOneEnable
+  };
 
   VkPipelineColorBlendAttachmentState color_blend_attachment_state = {
-      VK_FALSE,
-      VK_BLEND_FACTOR_ONE,
-      VK_BLEND_FACTOR_ZERO,
-      VK_BLEND_OP_ADD,
-      VK_BLEND_FACTOR_ONE,
-      VK_BLEND_FACTOR_ZERO,
-      VK_BLEND_OP_ADD,
-      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+      VK_FALSE,  // VkBool32                                       blendEnable
+      VK_BLEND_FACTOR_ONE,   // VkBlendFactor srcColorBlendFactor
+      VK_BLEND_FACTOR_ZERO,  // VkBlendFactor dstColorBlendFactor
+      VK_BLEND_OP_ADD,       // VkBlendOp colorBlendOp
+      VK_BLEND_FACTOR_ONE,   // VkBlendFactor srcAlphaBlendFactor
+      VK_BLEND_FACTOR_ZERO,  // VkBlendFactor dstAlphaBlendFactor
+      VK_BLEND_OP_ADD,       // VkBlendOp alphaBlendOp
+      VK_COLOR_COMPONENT_R_BIT |
+          VK_COLOR_COMPONENT_G_BIT |  // VkColorComponentFlags colorWriteMask
           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
 
   VkPipelineColorBlendStateCreateInfo color_blend_state_create_info = {
@@ -188,6 +299,21 @@ bool HelloTriangle::CreatePipeline() {
                                       // VkPipelineColorBlendAttachmentState
                                       // *pAttachments
       {0.0f, 0.0f, 0.0f, 0.0f}        // float blendConstants[4]
+  };
+
+  std::vector<VkDynamicState> dynamic_states = {
+      VK_DYNAMIC_STATE_VIEWPORT,
+      VK_DYNAMIC_STATE_SCISSOR,
+  };
+
+  VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
+      VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,  // VkStructureType
+                                                             // sType
+      nullptr,  // const void                                    *pNext
+      0,        // VkPipelineDynamicStateCreateFlags              flags
+      static_cast<uint32_t>(
+          dynamic_states.size()),  // uint32_t dynamicStateCount
+      dynamic_states.data()        // const VkDynamicState *pDynamicStates
   };
 
   Tools::AutoDeleter<VkPipelineLayout, PFN_vkDestroyPipelineLayout>
@@ -225,9 +351,10 @@ bool HelloTriangle::CreatePipeline() {
       &color_blend_state_create_info,  // const
                                        // VkPipelineColorBlendStateCreateInfo
                                        // *pColorBlendState
-      nullptr,  // const VkPipelineDynamicStateCreateInfo        *pDynamicState
-      pipeline_layout.Get(),  // VkPipelineLayout layout
-      render_pass_,           // VkRenderPass renderPass
+      &dynamic_state_create_info,      // const VkPipelineDynamicStateCreateInfo
+                                       // *pDynamicState
+      pipeline_layout.Get(),           // VkPipelineLayout layout
+      Vulkan.RenderPass,               // VkRenderPass renderPass
       0,               // uint32_t                                       subpass
       VK_NULL_HANDLE,  // VkPipeline basePipelineHandle
       -1  // int32_t                                        basePipelineIndex
@@ -235,105 +362,141 @@ bool HelloTriangle::CreatePipeline() {
 
   if (vkCreateGraphicsPipelines(GetDevice(), VK_NULL_HANDLE, 1,
                                 &pipeline_create_info, nullptr,
-                                &graphics_pipeline_) != VK_SUCCESS) {
+                                &Vulkan.GraphicsPipeline) != VK_SUCCESS) {
     std::cout << "Could not create graphics pipeline!" << std::endl;
     return false;
   }
   return true;
 }
 
-Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>
-HelloTriangle::CreateShaderModule(const char* filename) {
-  const std::vector<char> code = Tools::GetBinaryFileContents(filename);
-  if (code.size() == 0) {
-    return Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>();
-  }
+bool HelloTriangleVertex::CreateVertexBuffer() {
+  VertexData vertex_data[] = {
+      {-0.7f, -0.7f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f},
+      {-0.7f, 0.7f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f},
+      {0.7f, -0.7f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f},
+      {0.7f, 0.7f, 0.0f, 1.0f, 0.3f, 0.3f, 0.3f, 0.0f}};
 
-  VkShaderModuleCreateInfo shader_module_create_info = {
-      VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,  // VkStructureType sType
-      nullptr,      // const void                    *pNext
-      0,            // VkShaderModuleCreateFlags      flags
-      code.size(),  // size_t                         codeSize
-      reinterpret_cast<const uint32_t*>(code.data())  // const uint32_t *pCode
+  Vulkan.VertexBuffer.Size = sizeof(vertex_data);
+
+  VkBufferCreateInfo buffer_create_info = {
+      VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,  // VkStructureType        sType
+      nullptr,                               // const void            *pNext
+      0,                                     // VkBufferCreateFlags    flags
+      Vulkan.VertexBuffer.Size,              // VkDeviceSize           size
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,     // VkBufferUsageFlags     usage
+      VK_SHARING_MODE_EXCLUSIVE,  // VkSharingMode          sharingMode
+      0,       // uint32_t               queueFamilyIndexCount
+      nullptr  // const uint32_t        *pQueueFamilyIndices
   };
 
-  VkShaderModule shader_module;
-  if (vkCreateShaderModule(GetDevice(), &shader_module_create_info, nullptr,
-                           &shader_module) != VK_SUCCESS) {
-    std::cout << "Could not create shader module from a \"" << filename
-              << "\" file!" << std::endl;
-    return Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>();
-  }
-
-  return Tools::AutoDeleter<VkShaderModule, PFN_vkDestroyShaderModule>(
-      shader_module, vkDestroyShaderModule, GetDevice());
-}
-
-Tools::AutoDeleter<VkPipelineLayout, PFN_vkDestroyPipelineLayout>
-HelloTriangle::CreatePipelineLayout() {
-  VkPipelineLayoutCreateInfo layout_create_info = {
-      VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,  // VkStructureType sType
-      nullptr,  // const void                    *pNext
-      0,        // VkPipelineLayoutCreateFlags    flags
-      0,        // uint32_t                       setLayoutCount
-      nullptr,  // const VkDescriptorSetLayout   *pSetLayouts
-      0,        // uint32_t                       pushConstantRangeCount
-      nullptr   // const VkPushConstantRange     *pPushConstantRanges
-  };
-
-  VkPipelineLayout pipeline_layout;
-  if (vkCreatePipelineLayout(GetDevice(), &layout_create_info, nullptr,
-                             &pipeline_layout) != VK_SUCCESS) {
-    std::cout << "Could not create pipeline layout!" << std::endl;
-    return Tools::AutoDeleter<VkPipelineLayout, PFN_vkDestroyPipelineLayout>();
-  }
-
-  return Tools::AutoDeleter<VkPipelineLayout, PFN_vkDestroyPipelineLayout>(
-      pipeline_layout, vkDestroyPipelineLayout, GetDevice());
-}
-
-bool HelloTriangle::CreateSemaphores() {
-  VkSemaphoreCreateInfo semaphore_create_info = {
-      VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,  // VkStructureType sType
-      nullptr,  // const void*              pNext
-      0         // VkSemaphoreCreateFlags   flags
-  };
-
-  if ((vkCreateSemaphore(GetDevice(), &semaphore_create_info, nullptr,
-                         &image_available_semaphore_) != VK_SUCCESS) ||
-      (vkCreateSemaphore(GetDevice(), &semaphore_create_info, nullptr,
-                         &rendering_finished_femaphore_) != VK_SUCCESS)) {
-    std::cout << "Could not create semaphores!" << std::endl;
+  if (vkCreateBuffer(GetDevice(), &buffer_create_info, nullptr,
+                     &Vulkan.VertexBuffer.Handle) != VK_SUCCESS) {
+    std::cout << "Could not create a vertex buffer!" << std::endl;
     return false;
   }
+
+  if (!AllocateBufferMemory(Vulkan.VertexBuffer.Handle,
+                            &Vulkan.VertexBuffer.Memory)) {
+    std::cout << "Could not allocate memory for a vertex buffer!" << std::endl;
+    return false;
+  }
+
+  if (vkBindBufferMemory(GetDevice(), Vulkan.VertexBuffer.Handle,
+                         Vulkan.VertexBuffer.Memory, 0) != VK_SUCCESS) {
+    std::cout << "Could not bind memory for a vertex buffer!" << std::endl;
+    return false;
+  }
+
+  void *vertex_buffer_memory_pointer;
+  if (vkMapMemory(GetDevice(), Vulkan.VertexBuffer.Memory, 0,
+                  Vulkan.VertexBuffer.Size, 0,
+                  &vertex_buffer_memory_pointer) != VK_SUCCESS) {
+    std::cout << "Could not map memory and upload data to a vertex buffer!"
+              << std::endl;
+    return false;
+  }
+
+  memcpy(vertex_buffer_memory_pointer, vertex_data, Vulkan.VertexBuffer.Size);
+
+  VkMappedMemoryRange flush_range = {
+      VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,  // VkStructureType        sType
+      nullptr,                                // const void            *pNext
+      Vulkan.VertexBuffer.Memory,             // VkDeviceMemory         memory
+      0,                                      // VkDeviceSize           offset
+      VK_WHOLE_SIZE                           // VkDeviceSize           size
+  };
+  vkFlushMappedMemoryRanges(GetDevice(), 1, &flush_range);
+
+  vkUnmapMemory(GetDevice(), Vulkan.VertexBuffer.Memory);
 
   return true;
 }
 
-bool HelloTriangle::CreateCommandBuffers() {
-  if (!CreateCommandPool(GetGraphicsQueue().FamilyIndex,
-                         &graphics_command_pool_)) {
+bool HelloTriangleVertex::AllocateBufferMemory(VkBuffer buffer,
+                                               VkDeviceMemory *memory) {
+  VkMemoryRequirements buffer_memory_requirements;
+  vkGetBufferMemoryRequirements(GetDevice(), buffer,
+                                &buffer_memory_requirements);
+
+  VkPhysicalDeviceMemoryProperties memory_properties;
+  vkGetPhysicalDeviceMemoryProperties(GetPhysicalDevice(), &memory_properties);
+
+  for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
+    if ((buffer_memory_requirements.memoryTypeBits & (1 << i)) &&
+        (memory_properties.memoryTypes[i].propertyFlags &
+         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
+      VkMemoryAllocateInfo memory_allocate_info = {
+          VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,  // VkStructureType sType
+          nullptr,  // const void                            *pNext
+          buffer_memory_requirements.size,  // VkDeviceSize allocationSize
+          i  // uint32_t                               memoryTypeIndex
+      };
+
+      if (vkAllocateMemory(GetDevice(), &memory_allocate_info, nullptr,
+                           memory) == VK_SUCCESS) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool HelloTriangleVertex::CreateRenderingResources() {
+  if (!CreateCommandBuffers()) {
+    return false;
+  }
+  if (!CreateSemaphores()) {
+    return false;
+  }
+  if (!CreateFences()) {
+    return false;
+  }
+  return true;
+}
+
+bool HelloTriangleVertex::CreateCommandBuffers() {
+  if (!CreateCommandPool(GetGraphicsQueue().FamilyIndex, &Vulkan.CommandPool)) {
     std::cout << "Could not create command pool!" << std::endl;
     return false;
   }
-
-  uint32_t image_count = static_cast<uint32_t>(GetSwapChain().Images.size());
-  graphics_command_buffers_.resize(image_count, VK_NULL_HANDLE);
-
-  if (!AllocateCommandBuffers(graphics_command_pool_, image_count,
-                              graphics_command_buffers_.data())) {
-    std::cout << "Could not allocate command buffers!" << std::endl;
-    return false;
+  for (size_t i = 0; i < Vulkan.RenderingResources.size(); ++i) {
+    if (!AllocateCommandBuffers(Vulkan.CommandPool, 1,
+                                &Vulkan.RenderingResources[i].CommandBuffer)) {
+      std::cout << "Could not allocate command buffer!" << std::endl;
+      return false;
+    }
   }
   return true;
 }
 
-bool HelloTriangle::CreateCommandPool(uint32_t queue_family_index,
-                                      VkCommandPool* pool) {
+bool HelloTriangleVertex::CreateCommandPool(uint32_t queue_family_index,
+                                            VkCommandPool *pool) {
   VkCommandPoolCreateInfo cmd_pool_create_info = {
       VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,  // VkStructureType sType
-      nullptr,            // const void                    *pNext
-      0,                  // VkCommandPoolCreateFlags       flags
+      nullptr,  // const void                    *pNext
+      VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT |  // VkCommandPoolCreateFlags
+                                                         // flags
+          VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
       queue_family_index  // uint32_t                       queueFamilyIndex
   };
 
@@ -344,8 +507,8 @@ bool HelloTriangle::CreateCommandPool(uint32_t queue_family_index,
   return true;
 }
 
-bool HelloTriangle::AllocateCommandBuffers(VkCommandPool pool, uint32_t count,
-                                           VkCommandBuffer* command_buffers) {
+bool HelloTriangleVertex::AllocateCommandBuffers(
+    VkCommandPool pool, uint32_t count, VkCommandBuffer *command_buffers) {
   VkCommandBufferAllocateInfo command_buffer_allocate_info = {
       VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,  // VkStructureType sType
       nullptr,  // const void                    *pNext
@@ -361,192 +524,226 @@ bool HelloTriangle::AllocateCommandBuffers(VkCommandPool pool, uint32_t count,
   return true;
 }
 
-bool HelloTriangle::RecordCommandBuffers() {
-  VkCommandBufferBeginInfo graphics_commandd_buffer_begin_info = {
-      VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,  // VkStructureType sType
-      nullptr,  // const void                            *pNext
-      VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,  // VkCommandBufferUsageFlags
-                                                     // flags
-      nullptr  // const VkCommandBufferInheritanceInfo  *pInheritanceInfo
+bool HelloTriangleVertex::CreateSemaphores() {
+  VkSemaphoreCreateInfo semaphore_create_info = {
+      VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,  // VkStructureType sType
+      nullptr,  // const void*                    pNext
+      0         // VkSemaphoreCreateFlags         flags
   };
 
-  VkImageSubresourceRange image_subresource_range = {
-      VK_IMAGE_ASPECT_COLOR_BIT,  // VkImageAspectFlags             aspectMask
-      0,                          // uint32_t                       baseMipLevel
-      1,                          // uint32_t                       levelCount
-      0,  // uint32_t                       baseArrayLayer
-      1   // uint32_t                       layerCount
-  };
-
-  VkClearValue clear_value = {
-      {0.2f, 0.3f, 0.3f, 1.0f},  // VkClearColorValue              color
-  };
-
-  const std::vector<ImageParameters>& swap_chain_images = GetSwapChain().Images;
-
-  for (size_t i = 0; i < graphics_command_buffers_.size(); ++i) {
-    vkBeginCommandBuffer(graphics_command_buffers_[i],
-                         &graphics_commandd_buffer_begin_info);
-
-    if (GetPresentQueue().Handle != GetGraphicsQueue().Handle) {
-      VkImageMemoryBarrier barrier_from_present_to_draw = {
-          VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,  // VkStructureType sType
-          nullptr,                    // const void                    *pNext
-          VK_ACCESS_MEMORY_READ_BIT,  // VkAccessFlags srcAccessMask
-          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,  // VkAccessFlags dstAccessMask
-          VK_IMAGE_LAYOUT_UNDEFINED,             // VkImageLayout oldLayout
-          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,       // VkImageLayout newLayout
-          GetPresentQueue().FamilyIndex,         // uint32_t srcQueueFamilyIndex
-          GetGraphicsQueue().FamilyIndex,        // uint32_t dstQueueFamilyIndex
-          swap_chain_images[i].Handle,  // VkImage                        image
-          image_subresource_range  // VkImageSubresourceRange subresourceRange
-      };
-      vkCmdPipelineBarrier(graphics_command_buffers_[i],
-                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
-                           nullptr, 0, nullptr, 1,
-                           &barrier_from_present_to_draw);
-    }
-
-    VkRenderPassBeginInfo render_pass_begin_info = {
-        VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,  // VkStructureType sType
-        nullptr,           // const void                    *pNext
-        render_pass_,      // VkRenderPass                   renderPass
-        framebuffers_[i],  // VkFramebuffer                  framebuffer
-        {                  // VkRect2D                       renderArea
-         {
-             // VkOffset2D                     offset
-             0,  // int32_t                        x
-             0   // int32_t                        y
-         },
-         {
-             // VkExtent2D                     extent
-             800,  // int32_t                        width
-             600,  // int32_t                        height
-         }},
-        1,            // uint32_t                       clearValueCount
-        &clear_value  // const VkClearValue            *pClearValues
-    };
-
-    vkCmdBeginRenderPass(graphics_command_buffers_[i], &render_pass_begin_info,
-                         VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(graphics_command_buffers_[i],
-                      VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
-
-    vkCmdDraw(graphics_command_buffers_[i], 3, 1, 0, 0);
-
-    vkCmdEndRenderPass(graphics_command_buffers_[i]);
-
-    if (GetGraphicsQueue().Handle != GetPresentQueue().Handle) {
-      VkImageMemoryBarrier barrier_from_draw_to_present = {
-          VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,  // VkStructureType sType
-          nullptr,  // const void                  *pNext
-          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,  // VkAccessFlags srcAccessMask
-          VK_ACCESS_MEMORY_READ_BIT,             // VkAccessFlags dstAccessMask
-          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,       // VkImageLayout oldLayout
-          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,       // VkImageLayout newLayout
-          GetGraphicsQueue().FamilyIndex,        // uint32_t srcQueueFamilyIndex
-          GetPresentQueue().FamilyIndex,         // uint32_t dstQueueFamilyIndex
-          swap_chain_images[i].Handle,  // VkImage                      image
-          image_subresource_range  // VkImageSubresourceRange subresourceRange
-      };
-      vkCmdPipelineBarrier(graphics_command_buffers_[i],
-                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                           VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr,
-                           0, nullptr, 1, &barrier_from_draw_to_present);
-    }
-    if (vkEndCommandBuffer(graphics_command_buffers_[i]) != VK_SUCCESS) {
-      std::cout << "Could not record command buffer!" << std::endl;
+  for (size_t i = 0; i < Vulkan.RenderingResources.size(); ++i) {
+    if ((vkCreateSemaphore(
+             GetDevice(), &semaphore_create_info, nullptr,
+             &Vulkan.RenderingResources[i].ImageAvailableSemaphore) !=
+         VK_SUCCESS) ||
+        (vkCreateSemaphore(
+             GetDevice(), &semaphore_create_info, nullptr,
+             &Vulkan.RenderingResources[i].FinishedRenderingSemaphore) !=
+         VK_SUCCESS)) {
+      std::cout << "Could not create semaphores!" << std::endl;
       return false;
     }
   }
   return true;
 }
 
-void HelloTriangle::ChildClear() {
-  if (GetDevice() != VK_NULL_HANDLE) {
-    vkDeviceWaitIdle(GetDevice());
+bool HelloTriangleVertex::CreateFences() {
+  VkFenceCreateInfo fence_create_info = {
+      VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,  // VkStructureType sType
+      nullptr,                      // const void                    *pNext
+      VK_FENCE_CREATE_SIGNALED_BIT  // VkFenceCreateFlags             flags
+  };
 
-    if ((graphics_command_buffers_.size() > 0) &&
-        (graphics_command_buffers_[0] != VK_NULL_HANDLE)) {
-      vkFreeCommandBuffers(
-          GetDevice(), graphics_command_pool_,
-          static_cast<uint32_t>(graphics_command_buffers_.size()),
-          graphics_command_buffers_.data());
-      graphics_command_buffers_.clear();
+  for (size_t i = 0; i < Vulkan.RenderingResources.size(); ++i) {
+    if (vkCreateFence(GetDevice(), &fence_create_info, nullptr,
+                      &Vulkan.RenderingResources[i].Fence) != VK_SUCCESS) {
+      std::cout << "Could not create a fence!" << std::endl;
+      return false;
     }
-
-    if (graphics_command_pool_ != VK_NULL_HANDLE) {
-      vkDestroyCommandPool(GetDevice(), graphics_command_pool_, nullptr);
-      graphics_command_pool_ = VK_NULL_HANDLE;
-    }
-
-    if (graphics_pipeline_ != VK_NULL_HANDLE) {
-      vkDestroyPipeline(GetDevice(), graphics_pipeline_, nullptr);
-      graphics_pipeline_ = VK_NULL_HANDLE;
-    }
-
-    if (render_pass_ != VK_NULL_HANDLE) {
-      vkDestroyRenderPass(GetDevice(), render_pass_, nullptr);
-      render_pass_ = VK_NULL_HANDLE;
-    }
-
-    for (size_t i = 0; i < framebuffers_.size(); ++i) {
-      if (framebuffers_[i] != VK_NULL_HANDLE) {
-        vkDestroyFramebuffer(GetDevice(), framebuffers_[i], nullptr);
-        framebuffers_[i] = VK_NULL_HANDLE;
-      }
-    }
-    framebuffers_.clear();
   }
+  return true;
 }
 
-bool HelloTriangle::ChildOnWindowSizeChanged() {
-  if (!CreateRenderPass()) {
+bool HelloTriangleVertex::PrepareFrame(VkCommandBuffer command_buffer,
+                                       const ImageParameters &image_parameters,
+                                       VkFramebuffer &framebuffer) {
+  if (!CreateFramebuffer(framebuffer, image_parameters.View)) {
     return false;
   }
-  if (!CreateFramebuffers()) {
+
+  VkCommandBufferBeginInfo command_buffer_begin_info = {
+      VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,  // VkStructureType sType
+      nullptr,  // const void                            *pNext
+      VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,  // VkCommandBufferUsageFlags
+                                                    // flags
+      nullptr  // const VkCommandBufferInheritanceInfo  *pInheritanceInfo
+  };
+
+  vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info);
+
+  VkImageSubresourceRange image_subresource_range = {
+      VK_IMAGE_ASPECT_COLOR_BIT,  // VkImageAspectFlags aspectMask
+      0,  // uint32_t                               baseMipLevel
+      1,  // uint32_t                               levelCount
+      0,  // uint32_t                               baseArrayLayer
+      1   // uint32_t                               layerCount
+  };
+
+  if (GetPresentQueue().Handle != GetGraphicsQueue().Handle) {
+    VkImageMemoryBarrier barrier_from_present_to_draw = {
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,  // VkStructureType sType
+        nullptr,  // const void                            *pNext
+        VK_ACCESS_MEMORY_READ_BIT,        // VkAccessFlags srcAccessMask
+        VK_ACCESS_MEMORY_READ_BIT,        // VkAccessFlags dstAccessMask
+        VK_IMAGE_LAYOUT_UNDEFINED,        // VkImageLayout oldLayout
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,  // VkImageLayout newLayout
+        GetPresentQueue().FamilyIndex,    // uint32_t srcQueueFamilyIndex
+        GetGraphicsQueue().FamilyIndex,   // uint32_t dstQueueFamilyIndex
+        image_parameters.Handle,          // VkImage image
+        image_subresource_range  // VkImageSubresourceRange subresourceRange
+    };
+    vkCmdPipelineBarrier(command_buffer,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
+                         nullptr, 0, nullptr, 1, &barrier_from_present_to_draw);
+  }
+
+  VkClearValue clear_value = {
+      {1.0f, 0.8f, 0.4f, 0.0f},  // VkClearColorValue                      color
+  };
+
+  VkRenderPassBeginInfo render_pass_begin_info = {
+      VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,  // VkStructureType sType
+      nullptr,            // const void                            *pNext
+      Vulkan.RenderPass,  // VkRenderPass                           renderPass
+      framebuffer,        // VkFramebuffer                          framebuffer
+      {
+          // VkRect2D                               renderArea
+          {
+              // VkOffset2D                             offset
+              0,  // int32_t                                x
+              0   // int32_t                                y
+          },
+          GetSwapChain().Extent,  // VkExtent2D extent;
+      },
+      1,            // uint32_t                               clearValueCount
+      &clear_value  // const VkClearValue                    *pClearValues
+  };
+
+  vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
+                       VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    Vulkan.GraphicsPipeline);
+
+  VkViewport viewport = {
+      0.0f,  // float                                  x
+      0.0f,  // float                                  y
+      static_cast<float>(GetSwapChain().Extent.width),   // float width
+      static_cast<float>(GetSwapChain().Extent.height),  // float height
+      0.0f,  // float                                  minDepth
+      1.0f   // float                                  maxDepth
+  };
+
+  VkRect2D scissor = {{
+                          // VkOffset2D                             offset
+                          0,  // int32_t                                x
+                          0   // int32_t                                y
+                      },
+                      {
+                          // VkExtent2D                             extent
+                          GetSwapChain().Extent.width,  // uint32_t width
+                          GetSwapChain().Extent.height  // uint32_t height
+                      }};
+
+  vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+  vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+
+  VkDeviceSize offset = 0;
+  vkCmdBindVertexBuffers(command_buffer, 0, 1, &Vulkan.VertexBuffer.Handle,
+                         &offset);
+
+  vkCmdDraw(command_buffer, 4, 1, 0, 0);
+
+  vkCmdEndRenderPass(command_buffer);
+
+  if (GetGraphicsQueue().Handle != GetPresentQueue().Handle) {
+    VkImageMemoryBarrier barrier_from_draw_to_present = {
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,  // VkStructureType sType
+        nullptr,  // const void                            *pNext
+        VK_ACCESS_MEMORY_READ_BIT,        // VkAccessFlags srcAccessMask
+        VK_ACCESS_MEMORY_READ_BIT,        // VkAccessFlags dstAccessMask
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,  // VkImageLayout oldLayout
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,  // VkImageLayout newLayout
+        GetGraphicsQueue().FamilyIndex,   // uint32_t srcQueueFamilyIndex
+        GetPresentQueue().FamilyIndex,    // uint32_t dstQueueFamilyIndex
+        image_parameters.Handle,          // VkImage image
+        image_subresource_range  // VkImageSubresourceRange subresourceRange
+    };
+    vkCmdPipelineBarrier(command_buffer,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier_from_draw_to_present);
+  }
+
+  if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
+    std::cout << "Could not record command buffer!" << std::endl;
     return false;
   }
-  if (!CreatePipeline()) {
-    return false;
+  return true;
+}
+
+bool HelloTriangleVertex::CreateFramebuffer(VkFramebuffer &framebuffer,
+                                            VkImageView image_view) {
+  if (framebuffer != VK_NULL_HANDLE) {
+    vkDestroyFramebuffer(GetDevice(), framebuffer, nullptr);
+    framebuffer = VK_NULL_HANDLE;
   }
-  if (!CreateCommandBuffers()) {
-    return false;
-  }
-  if (!RecordCommandBuffers()) {
+
+  VkFramebufferCreateInfo framebuffer_create_info = {
+      VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,  // VkStructureType sType
+      nullptr,            // const void                    *pNext
+      0,                  // VkFramebufferCreateFlags       flags
+      Vulkan.RenderPass,  // VkRenderPass                   renderPass
+      1,                  // uint32_t                       attachmentCount
+      &image_view,        // const VkImageView             *pAttachments
+      GetSwapChain().Extent.width,   // uint32_t                       width
+      GetSwapChain().Extent.height,  // uint32_t                       height
+      1                              // uint32_t                       layers
+  };
+
+  if (vkCreateFramebuffer(GetDevice(), &framebuffer_create_info, nullptr,
+                          &framebuffer) != VK_SUCCESS) {
+    std::cout << "Could not create a framebuffer!" << std::endl;
     return false;
   }
 
   return true;
 }
 
-HelloTriangle::~HelloTriangle() {
-  ChildClear();
+bool HelloTriangleVertex::ChildOnWindowSizeChanged() { return true; }
 
-  if (GetDevice() != VK_NULL_HANDLE) {
-    vkDeviceWaitIdle(GetDevice());
-
-    if (image_available_semaphore_ != VK_NULL_HANDLE) {
-      vkDestroySemaphore(GetDevice(), image_available_semaphore_, nullptr);
-    }
-
-    if (rendering_finished_femaphore_ != VK_NULL_HANDLE) {
-      vkDestroySemaphore(GetDevice(), rendering_finished_femaphore_, nullptr);
-    }
-  }
-}
-
-HelloTriangle::HelloTriangle() {}
-
-bool HelloTriangle::Draw() {
+bool HelloTriangleVertex::Draw() {
+  static size_t resource_index = 0;
+  RenderingResourcesData &current_rendering_resource =
+      Vulkan.RenderingResources[resource_index];
   VkSwapchainKHR swap_chain = GetSwapChain().Handle;
   uint32_t image_index;
 
-  VkResult result = vkAcquireNextImageKHR(GetDevice(), swap_chain, UINT64_MAX,
-                                          image_available_semaphore_,
-                                          VK_NULL_HANDLE, &image_index);
+  resource_index =
+      (resource_index + 1) % VulkanTutorial04Parameters::ResourcesCount;
+
+  if (vkWaitForFences(GetDevice(), 1, &current_rendering_resource.Fence,
+                      VK_FALSE, 1000000000) != VK_SUCCESS) {
+    std::cout << "Waiting for fence takes too long!" << std::endl;
+    return false;
+  }
+  vkResetFences(GetDevice(), 1, &current_rendering_resource.Fence);
+
+  VkResult result =
+      vkAcquireNextImageKHR(GetDevice(), swap_chain, UINT64_MAX,
+                            current_rendering_resource.ImageAvailableSemaphore,
+                            VK_NULL_HANDLE, &image_index);
   switch (result) {
     case VK_SUCCESS:
     case VK_SUBOPTIMAL_KHR:
@@ -559,23 +756,31 @@ bool HelloTriangle::Draw() {
       return false;
   }
 
+  if (!PrepareFrame(current_rendering_resource.CommandBuffer,
+                    GetSwapChain().Images[image_index],
+                    current_rendering_resource.Framebuffer)) {
+    return false;
+  }
+
   VkPipelineStageFlags wait_dst_stage_mask =
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   VkSubmitInfo submit_info = {
       VK_STRUCTURE_TYPE_SUBMIT_INFO,  // VkStructureType              sType
       nullptr,                        // const void                  *pNext
       1,  // uint32_t                     waitSemaphoreCount
-      &image_available_semaphore_,  // const VkSemaphore *pWaitSemaphores
+      &current_rendering_resource
+           .ImageAvailableSemaphore,  // const VkSemaphore *pWaitSemaphores
       &wait_dst_stage_mask,  // const VkPipelineStageFlags  *pWaitDstStageMask;
       1,                     // uint32_t                     commandBufferCount
-      &graphics_command_buffers_[image_index],  // const VkCommandBuffer
-                                                // *pCommandBuffers
-      1,  // uint32_t                     signalSemaphoreCount
-      &rendering_finished_femaphore_  // const VkSemaphore *pSignalSemaphores
+      &current_rendering_resource
+           .CommandBuffer,  // const VkCommandBuffer       *pCommandBuffers
+      1,                    // uint32_t                     signalSemaphoreCount
+      &current_rendering_resource
+           .FinishedRenderingSemaphore  // const VkSemaphore *pSignalSemaphores
   };
 
   if (vkQueueSubmit(GetGraphicsQueue().Handle, 1, &submit_info,
-                    VK_NULL_HANDLE) != VK_SUCCESS) {
+                    current_rendering_resource.Fence) != VK_SUCCESS) {
     return false;
   }
 
@@ -583,7 +788,8 @@ bool HelloTriangle::Draw() {
       VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,  // VkStructureType              sType
       nullptr,                             // const void                  *pNext
       1,  // uint32_t                     waitSemaphoreCount
-      &rendering_finished_femaphore_,  // const VkSemaphore *pWaitSemaphores
+      &current_rendering_resource
+           .FinishedRenderingSemaphore,  // const VkSemaphore *pWaitSemaphores
       1,             // uint32_t                     swapchainCount
       &swap_chain,   // const VkSwapchainKHR        *pSwapchains
       &image_index,  // const uint32_t              *pImageIndices
@@ -601,65 +807,66 @@ bool HelloTriangle::Draw() {
       std::cout << "Problem occurred during image presentation!" << std::endl;
       return false;
   }
+
   return true;
 }
 
-bool HelloTriangle::CreateVertexBuffer() {
-  const std::vector<Vertex> vertices = {
-      {{
-          0.5f,
-          -0.5f,
-          0.0f,
-      }},
-      {{
-          0.0f,
-          0.5f,
-          0.0f,
-      }},
-      {{
-          -0.5f,
-          -0.5f,
-          0.0f,
-      }},
-  };
-  VkBufferCreateInfo buffer_info{};
-  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_info.size = sizeof(vertices[0]) * vertices.size();
-  buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  if (vkCreateBuffer(GetDevice(), &buffer_info, nullptr, &vertex_buffer_) !=
-      VK_SUCCESS) {
-    return false;
-  }
-  if (vkCreateBuffer(GetDevice(), &buffer_info, nullptr,
-                     &vertex_buffer_) != VK_SUCCESS) {
-    std::cout << "Could not create a vertex buffer!" << std::endl;
-    return false;
-  }
-}
+void HelloTriangleVertex::ChildClear() {}
 
- bool HelloTriangle::AllocateBufferMemory( VkBuffer buffer, VkDeviceMemory *memory ) {
-    VkMemoryRequirements buffer_memory_requirements;
-    vkGetBufferMemoryRequirements( GetDevice(), buffer, &buffer_memory_requirements );
+HelloTriangleVertex::~HelloTriangleVertex() {
+  if (GetDevice() != VK_NULL_HANDLE) {
+    vkDeviceWaitIdle(GetDevice());
 
-    VkPhysicalDeviceMemoryProperties memory_properties;
-    vkGetPhysicalDeviceMemoryProperties( GetPhysicalDevice(), &memory_properties );
-
-    for( uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i ) {
-      if( (buffer_memory_requirements.memoryTypeBits & (1 << i)) &&
-        (memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ) {
-
-        VkMemoryAllocateInfo memory_allocate_info = {
-          VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,     // VkStructureType                        sType
-          nullptr,                                    // const void                            *pNext
-          buffer_memory_requirements.size,            // VkDeviceSize                           allocationSize
-          i                                           // uint32_t                               memoryTypeIndex
-        };
-
-        if( vkAllocateMemory( GetDevice(), &memory_allocate_info, nullptr, memory ) == VK_SUCCESS ) {
-          return true;
-        }
+    for (size_t i = 0; i < Vulkan.RenderingResources.size(); ++i) {
+      if (Vulkan.RenderingResources[i].Framebuffer != VK_NULL_HANDLE) {
+        vkDestroyFramebuffer(GetDevice(),
+                             Vulkan.RenderingResources[i].Framebuffer, nullptr);
+      }
+      if (Vulkan.RenderingResources[i].CommandBuffer != VK_NULL_HANDLE) {
+        vkFreeCommandBuffers(GetDevice(), Vulkan.CommandPool, 1,
+                             &Vulkan.RenderingResources[i].CommandBuffer);
+      }
+      if (Vulkan.RenderingResources[i].ImageAvailableSemaphore !=
+          VK_NULL_HANDLE) {
+        vkDestroySemaphore(GetDevice(),
+                           Vulkan.RenderingResources[i].ImageAvailableSemaphore,
+                           nullptr);
+      }
+      if (Vulkan.RenderingResources[i].FinishedRenderingSemaphore !=
+          VK_NULL_HANDLE) {
+        vkDestroySemaphore(
+            GetDevice(),
+            Vulkan.RenderingResources[i].FinishedRenderingSemaphore, nullptr);
+      }
+      if (Vulkan.RenderingResources[i].Fence != VK_NULL_HANDLE) {
+        vkDestroyFence(GetDevice(), Vulkan.RenderingResources[i].Fence,
+                       nullptr);
       }
     }
-    return false;
+
+    if (Vulkan.CommandPool != VK_NULL_HANDLE) {
+      vkDestroyCommandPool(GetDevice(), Vulkan.CommandPool, nullptr);
+      Vulkan.CommandPool = VK_NULL_HANDLE;
+    }
+
+    if (Vulkan.VertexBuffer.Handle != VK_NULL_HANDLE) {
+      vkDestroyBuffer(GetDevice(), Vulkan.VertexBuffer.Handle, nullptr);
+      Vulkan.VertexBuffer.Handle = VK_NULL_HANDLE;
+    }
+
+    if (Vulkan.VertexBuffer.Memory != VK_NULL_HANDLE) {
+      vkFreeMemory(GetDevice(), Vulkan.VertexBuffer.Memory, nullptr);
+      Vulkan.VertexBuffer.Memory = VK_NULL_HANDLE;
+    }
+
+    if (Vulkan.GraphicsPipeline != VK_NULL_HANDLE) {
+      vkDestroyPipeline(GetDevice(), Vulkan.GraphicsPipeline, nullptr);
+      Vulkan.GraphicsPipeline = VK_NULL_HANDLE;
+    }
+
+    if (Vulkan.RenderPass != VK_NULL_HANDLE) {
+      vkDestroyRenderPass(GetDevice(), Vulkan.RenderPass, nullptr);
+      Vulkan.RenderPass = VK_NULL_HANDLE;
+    }
   }
+}
